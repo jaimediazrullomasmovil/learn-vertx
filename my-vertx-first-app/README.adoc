@@ -5,43 +5,73 @@ This project is a example Vert.x project using Gradle.
 == Prerequisites
 
 * JDK 11+
+* rxjava 2
+* vertx
 * docker
 * Kafka
 * Postgres
 * Postman
+* pgadmin
 
 == Getting started
 
-Create your project with:
-
-[source]
+To build the project and generate jar
 ----
-git clone https://github.com/vert-x3/vertx-gradle-starter.git PROJECT_NAME
+gradle build
 ----
-
-Replace `PROJECT_NAME` with the name of your project.
-
-On Linux and MacOSx (or Windows with `bash`), if you want to go faster and generate an already configured project run:
-
-[source]
-----
-curl http://vertx.io/assets/starter-scripts/create-vertx-project-gradle.sh -o vertx-create-gradle-project.sh; bash vertx-create-gradle-project.sh
-----
-
-== Running the project
 
 Once you have retrieved the project, you can check that everything works with:
-
-[source]
+----
+gradle test
+----
+or
 ----
 ./gradlew test run
 ----
 
-The command compiles the project and runs the tests, then  it launches the application, so you can check by yourself. Open your browser to http://localhost:8080. You should see a _Hello World_ message.
+The command compiles the project and runs the tests, then  it launches the application, so you can check by yourself. Open your browser to http://localhost:3001. You should see a _Hello World_ message.
+
+== Before run the project
+
+In (`docker`) folder you can find:
+
+* Kafka
+----
+cd docker/kafka
+docker-compose up -d
+----
+
+* postgres
+----
+docker pull postgres
+docker run -d --name postgres -e POSTGRES_PASSWORD=password -p 5432:5432
+----
+With a sql client(For example: https://www.pgadmin.org/download/)
+Create the table "testuser" with the columns
+
+* id -> DataType: text Not NULL: true Primary Key: true
+* name -> DataType: text Not NULL: false Primary Key: false
+
+== After run the project
+
+You can test the api with the postman collection(`postman/postman_collection.json`).
+The collection is in the postman folder, it contains example requests to:
+
+* Create user
+* Update user
+* Get user by id
+* Get all users
+* Delete user by id
+
 
 == Anatomy of the project
 
-The project contains:
+The project use two verticles:
+
+* *ApiVerticle* to receive rest requests and operates with
+database[postgres] directly in query operations _(GET)_ and send events(_via kafka_) to command operations _(POST, PUT, DELETE)_.
+
+* *EventsVerticle* receive the events and performs the operations on the database.
 
 [ditaa]
 ----
@@ -51,6 +81,7 @@ The project contains:
                    +-------------------------+
                    |[GET] /users             |
     rest   -->     |[POST] /users            |<-----+
+                   |[GET] /users/{userId}    |      |
                    |[UPDATE] /users/{userId} |      |
                    |[DELETE] /users/{userId} |      |
                    +-------------------------+      |
@@ -72,9 +103,6 @@ The project contains:
                    +---+----+
 ----
 
-* the Gradle project using the Kotlin DSL (see `build.gradle.kts`) with auto-reloading and fat-jar building
-* a _main_ verticle file (`src/main/java/io/vertx/starter/MainVerticle.java`)
-* a unit test (`src/main/test/io/vertx/starter/MainVerticleTest.java`)
 
 == Building the project
 
