@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Main-Verticle: io.vertx.starter.MainVerticle
+Main-Class: io.vertx.core.Launcher
+
