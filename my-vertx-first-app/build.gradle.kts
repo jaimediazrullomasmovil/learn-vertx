@@ -16,17 +16,23 @@ val junitVersion = "5.3.2"
 dependencies {
   implementation(platform("io.vertx:vertx-stack-depchain:$vertxVersion"))
   implementation("io.vertx:vertx-core")
-  implementation("io.vertx:vertx-mongo-client:4.0.0")
+  implementation("io.vertx:vertx-mongo-client:$vertxVersion")
   implementation("io.vertx:vertx-web:$vertxVersion")
   implementation("io.vertx:vertx-rx-java2:$vertxVersion")
   implementation("io.reactivex.rxjava2:rxjava:2.2.20")
-  implementation("io.vertx:vertx-pg-client:4.0.0")
+  implementation("io.vertx:vertx-pg-client:$vertxVersion")
   implementation("ch.qos.logback:logback-classic:1.2.3")
   implementation("io.vertx:vertx-kafka-client")
-  testImplementation("io.vertx:vertx-junit5")
+  testImplementation("io.vertx:vertx-junit5-rx-java2")
   testImplementation("io.vertx:vertx-web-client:$vertxVersion")
   testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
+  testImplementation("org.testcontainers:junit-jupiter:1.15.1")
+  testImplementation("org.assertj:assertj-core:3.11.1")
+  testImplementation("org.testcontainers:postgresql:1.15.1")
+  testImplementation("org.testcontainers:kafka:1.15.1")
+  testImplementation("io.rest-assured:rest-assured:4.3.3")
   testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
+
 }
 
 java {

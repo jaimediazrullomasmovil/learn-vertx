@@ -37,6 +37,7 @@ public class EventsVerticle extends AbstractVerticle {
       .subscribe("incoming.users")
       .toFlowable()
       .flatMap(this::processRecord)
+      .doOnError(err -> logger.error("Woops", err))
       .flatMap(this::commitKafkaConsumerOffset)
       .doOnError(err -> logger.error("Woops", err))
       .retryWhen(this::retryLater)
