@@ -40,8 +40,8 @@ public class ApiVerticle extends AbstractVerticle {
 
         Router router = Router.router(vertx);
         router.get("/users").handler(this::allUsers);
-        router.route("/:users*").handler(BodyHandler.create());
-        router.post("/:users").handler(this::insertUser);
+        router.route("/users*").handler(BodyHandler.create());
+        router.post("/users").handler(this::insertUser);
         router.get("/:users/:userId").handler(this::getOneUser);
         router.put("/users/:userId").handler(this::updateUser);
         router.delete("/users/:userId").handler(this::deleteUser);
@@ -66,7 +66,7 @@ public class ApiVerticle extends AbstractVerticle {
     private void sendOneUser(RoutingContext ctx, RowSet<Row> rows) {
         if (rows.rowCount() == 1) {
             JsonObject payload = new JsonObject();
-            rows.forEach(row -> payload.put("userId",row.getString("id"))
+            rows.forEach(row -> payload.put("userId", row.getString("id"))
                     .put("userName", row.getString("name")));
             ctx.response()
                     .putHeader("Content-Type", "application/json")
@@ -75,6 +75,7 @@ public class ApiVerticle extends AbstractVerticle {
             send404(ctx);
         }
     }
+
     private void deleteUser(RoutingContext ctx) {
         String id = ctx.request().getParam("userId");
         Tuple params = Tuple.of(id);
@@ -85,51 +86,60 @@ public class ApiVerticle extends AbstractVerticle {
                         rows -> sendDeleteUser(ctx, rows),
                         err -> handleError(ctx, err));
     }
+
     private void sendDeleteUser(RoutingContext ctx, RowSet<Row> rows) {
         if (rows.rowCount() == 1) {
             JsonObject payload = new JsonObject();
-            rows.forEach(row -> payload.put("userId",row.getString("id"))
+            rows.forEach(row -> payload.put("userId", row.getString("id"))
                     .put("userName", row.getString("name")));
             publishUserDelete(payload);
             ctx.response()
-                    .setStatusCode(204)
+                    .setStatusCode(202)
                     .putHeader("Content-Type", "application/json")
                     .end(payload.encode());
         } else {
-            send404(ctx);
+            send204(ctx);
         }
     }
+
     private void publishUserDelete(JsonObject data) {
         JsonObject event = new JsonObject().mergeIn(data);
         event.put("eventType", EventType.DELETE.toString());
         producer.rxSend(KafkaProducerRecord.create("incoming.users", data.getString("userId"), event))
                 .subscribe(
-                        ok -> logger.info("Message sent to topic !! "+ ok.getTopic()),
-                        err ->logger.error("An error occurred during sending message: ", err));
+                        ok -> logger.info("Message sent to topic !! " + ok.getTopic()),
+                        err -> logger.error("An error occurred during sending message: ", err));
     }
 
     private void updateUser(RoutingContext ctx) {
         String id = ctx.request().getParam("userId");
-        Tuple params = Tuple.of(id);
-        pgPool
-                .preparedQuery(SqlQueries.getOneById())
-                .rxExecute(params)
-                .subscribe(
-                        rows -> {
-                            if (rows.rowCount() == 1) {
-                                JsonObject payload = new JsonObject();
-                                rows.forEach(row -> payload.put("userId",row.getString("id"))
-                                        .put("userName", ctx.getBodyAsJson().getValue("userName")));
-                                publishUserUpdate(payload);
-                                ctx.response()
-                                        .setStatusCode(200)
-                                        .putHeader("Content-Type", "application/json")
-                                        .end(payload.encode());
-                            } else {
-                                send404(ctx);
-                            }
-                        },
-                        err -> handleError(ctx, err));
+        JsonObject json = ctx.getBodyAsJson();
+        if (id == null || json == null) {
+            ctx.response().setStatusCode(400).end();
+        } else {
+            Tuple params = Tuple.of(id);
+            pgPool
+                    .preparedQuery(SqlQueries.getOneById())
+                    .rxExecute(params)
+                    .subscribe(
+                            rows -> {
+                                if (rows.rowCount() == 1) {
+                                    JsonObject payload = new JsonObject();
+                                    rows.forEach(row -> {
+                                        payload.put("userId", row.getString("id"))
+                                                .put("userName", ctx.getBodyAsJson().getString("userName"));
+                                    });
+                                    publishUserUpdate(payload);
+                                    ctx.response()
+                                            .setStatusCode(200)
+                                            .putHeader("Content-Type", "application/json")
+                                            .end(payload.encode());
+                                } else {
+                                    send404(ctx);
+                                }
+                            },
+                            err -> handleError(ctx, err));
+        }
     }
 
 
@@ -138,20 +148,25 @@ public class ApiVerticle extends AbstractVerticle {
         event.put("eventType", EventType.UPDATE.toString());
         producer.rxSend(KafkaProducerRecord.create("incoming.users", data.getString("userId"), event))
                 .subscribe(
-                        ok -> logger.info("Message sent to topic !! "+ ok.getTopic()),
-                        err ->logger.error("An error occurred during sending message: ", err));
+                        ok -> logger.info("Message sent to topic !! " + ok.getTopic()),
+                        err -> logger.error("An error occurred during sending message: ", err));
     }
 
     private void insertUser(RoutingContext ctx) {
-        JsonObject data = new JsonObject();
-        String userId = UUID.randomUUID().toString();
-        data.put("userId", userId);
-        data.put("userName", ctx.getBodyAsJson().getValue("userName"));
-        publishUserInsert(data);
-        ctx.response()
-                .setStatusCode(201)
-                .putHeader("Content-Type", "application/json")
-                .end(data.encode());
+        String userName = ctx.getBodyAsJson().getString("userName");
+        if (userName == null) {
+            ctx.response().setStatusCode(400).end();
+        } else {
+            JsonObject data = new JsonObject();
+            String userId = UUID.randomUUID().toString();
+            data.put("userId", userId);
+            data.put("userName", userName);
+            publishUserInsert(data);
+            ctx.response()
+                    .setStatusCode(202) //Async response
+                    .putHeader("Content-Type", "application/json")
+                    .end(data.encode());
+        }
     }
 
 
@@ -160,8 +175,8 @@ public class ApiVerticle extends AbstractVerticle {
         event.put("eventType", EventType.CREATE.toString());
         producer.rxSend(KafkaProducerRecord.create("incoming.users", data.getString("userId"), event))
                 .subscribe(
-                        ok -> logger.info("Message sent to topic ["+ ok.getTopic()+ "]!"),
-                        err ->logger.error("An error occurred during sending message: ", err));
+                        ok -> logger.info("Message sent to topic [" + ok.getTopic() + "]!"),
+                        err -> logger.error("An error occurred during sending message: ", err));
     }
 
     private void allUsers(RoutingContext ctx) {
@@ -187,6 +202,10 @@ public class ApiVerticle extends AbstractVerticle {
 
     private void send404(RoutingContext ctx) {
         ctx.response().setStatusCode(404).end();
+    }
+
+    private void send204(RoutingContext ctx) {
+        ctx.response().setStatusCode(204).end();
     }
 
     private void handleError(RoutingContext ctx, Throwable err) {
