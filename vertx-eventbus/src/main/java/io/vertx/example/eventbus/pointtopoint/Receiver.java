@@ -1,4 +1,4 @@
-package io.vertx.example.eventbus;
+package io.vertx.example.eventbus.pointtopoint;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.EventBus;
