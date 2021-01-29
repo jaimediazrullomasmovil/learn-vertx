@@ -1,2 +1,0 @@
-io/vertx/starter/MainVerticleTest.java
- io.vertx.starter.MainVerticleTest
